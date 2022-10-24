@@ -103,6 +103,13 @@ class EnvBase:
         self._parametric_shape_info = []
         self._node_boundary_info = []
         self._interface_boundary_type = 'free-slip'
+        ###########################################################################
+        # Populate these members if you want to use lattice.
+        ###########################################################################
+        self._lattice_cell_nums = None
+        self._lattice_weight_matrix = None
+        self._lattice_nodes = None
+        self._lattice_scale = None
 
     ###########################################################################
     # Derived classes should implement these functions.
@@ -148,6 +155,12 @@ class EnvBase:
     def upper_bound(self):
         raise NotImplementedError
 
+    def _embed_control_points_in_lattice(self, points):
+        raise NotImplementedError
+
+    def _embedding_weights(self):
+        raise NotImplementedError
+
     ###########################################################################
     # Other base-class functions.
     ###########################################################################
@@ -167,12 +180,12 @@ class EnvBase:
     # - require_grad: whether to compute gradients or not.
     # - options:
     #   - 'solver': 'eigen' or 'pardiso'.
-    def solve(self, x, require_grad, options):
+    def solve(self, param_and_J, require_grad, options):
         # Initialize shapes.
         assert self._parametric_shape_info
-        x = ndarray(x).copy().ravel()
+        # x = ndarray(x).copy().ravel()
         # Determine the mode number.
-        param_and_J = self._variables_to_shape_params(x)
+        # param_and_J = self._variables_to_shape_params(x)
         if len(param_and_J) == 2 and isinstance(param_and_J[0], np.ndarray):
             param_and_J = [param_and_J,]
         mode_num = len(param_and_J)
@@ -263,7 +276,9 @@ class EnvBase:
 
     def _render_2d(self, xk, img_name, options):
         assert self._folder
-        loss, info = self.solve(xk, False, options)
+        lattice_points = xk[1]
+        control_points = xk[0][0]
+        loss, info = self.solve(xk[0], False, options)
         # For the basic _render_2d function, we assume mode = 1.
         mode_num = len(info)
         for m in range(mode_num):
@@ -368,6 +383,14 @@ class EnvBase:
                     for k in range(vs_len):
                         lines.append((vs[k], vs[(k + 1) % vs_len]))
             ax.add_collection(mc.LineCollection(lines, colors='tab:orange', linewidth=1))
+
+            lattice_points = np.reshape(lattice_points, ((self._lattice_cell_nums[0]+1)*(self._lattice_cell_nums[1]+1), 2))
+            lattice_points *= self._lattice_scale
+            ax.scatter(lattice_points[:, 0], lattice_points[:, 1], color='red')
+
+            control_points = np.reshape(control_points, (2, -1, 2))
+            ax.scatter(control_points[0, :, 0], control_points[0, :, 1], color='blue')
+            ax.scatter(control_points[1, :, 0], control_points[1, :, 1], color='pink')
 
             # Plot other customized data if needed.
             self._render_customized_2d(scene, ax)

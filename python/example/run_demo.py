@@ -19,6 +19,7 @@ from py_diff_stokes_flow.common.display import export_gif
 all_demo_names = {
     # ID: (module name, class name).
     'amplifier': ('amplifier_env_2d', 'AmplifierEnv2d'),
+    'lattice_amplifier': ('lattice_amplifier_env_2d', 'LatticeAmplifierEnv2d'),
     'flow_averager': ('flow_averager_env_3d', 'FlowAveragerEnv3d'),
     'superposition_gate': ('superposition_gate_env_3d', 'SuperpositionGateEnv3d'),
     'funnel': ('funnel_env_3d', 'FunnelEnv3d'),
@@ -66,7 +67,11 @@ if __name__ == '__main__':
     print_info('Randomly sampling initial guesses...')
     for _ in tqdm(range(sample_num)):
         x = env.sample()
-        loss, _ = env.solve(x, False, { 'solver': solver }) 
+        params_and_J = env._variables_to_shape_params(x)
+        (param, _) = params_and_J
+        env._embed_control_points_in_lattice(param)
+        # params_and_J = env._lattice_to_shape_params(env._lattice_nodes)
+        loss, _ = env.solve(params_and_J, False, { 'solver': solver }) 
         losses.append(loss)
         samples.append(ndarray(x).copy())
         if loss < best_loss:
@@ -86,10 +91,24 @@ if __name__ == '__main__':
 
     # Local optimization: run L-BFGS from best_sample.
     x_init = np.copy(best_sample)
-    bounds = scipy.optimize.Bounds(env.lower_bound(), env.upper_bound())
+    param_and_J_init = env._variables_to_shape_params(x)
+    env._embed_control_points_in_lattice(param_and_J_init[0])
+    lattice_init = np.copy(env._lattice_nodes)
+    lattice_bound = np.ones_like(lattice_init)
+    lattice_bound = np.reshape(lattice_bound, (env._lattice_cell_nums[0]+1, env._lattice_cell_nums[1]+1, 2))
+    for i in range(2):
+        lattice_bound[0, :, i] = 0
+        lattice_bound[-1, :, i] = 0
+        lattice_bound[:, 0, i] = 0
+        lattice_bound[:, -1, i] = 0
+    lattice_bound = np.reshape(lattice_bound, (-1, 1))
+    
+    bounds = scipy.optimize.Bounds(lattice_init - lattice_bound, lattice_init + lattice_bound)
     def loss_and_grad(x):
         t_begin = time.time()
-        loss, grad, _ = env.solve(x, True, { 'solver': solver })
+        params_and_J = env._lattice_to_shape_params(x)
+        env._embed_control_points_in_lattice(params_and_J[0])
+        loss, grad, _ = env.solve(params_and_J, True, { 'solver': solver })
         # Normalize loss and grad.
         loss /= unit_loss
         grad /= unit_loss
@@ -108,25 +127,29 @@ if __name__ == '__main__':
             sys.exit(0)
 
     # File index + 1 = len(opt_history).
-    loss, grad = loss_and_grad(x_init)
-    opt_history = [(x_init.copy(), loss, grad.copy())]
+    loss, grad = loss_and_grad(lattice_init)
+    opt_history = [((lattice_init.copy(), env._embedding_weights().copy()), loss, grad.copy())]
     pickle.dump(opt_history, open('{}/{:04d}.data'.format(demo_name, 0), 'wb'))
     def callback(x):
         loss, grad = loss_and_grad(x)
+        ew = env._embedding_weights()
         global opt_history
         cnt = len(opt_history)
         print_info('Summary of iteration {:4d}'.format(cnt))
-        opt_history.append((x.copy(), loss, grad.copy()))
-        print_info('loss: {:3.6e}, |grad|: {:3.6e}, |x|: {:3.6e}'.format(
-            loss, np.linalg.norm(grad), np.linalg.norm(x)))
+        opt_history.append(((x.copy(), np.copy(ew)), loss, grad.copy()))
+        print_info('loss: {:3.6e}, |grad|: {:3.6e}, |x|: {:3.6e}, |p|: {:3.6e}'.format(
+            loss, np.linalg.norm(grad), np.linalg.norm(x), np.linalg.norm(x)))
         # Save data to the folder.
         pickle.dump(opt_history, open('{}/{:04d}.data'.format(demo_name, cnt), 'wb'))
 
-    results = scipy.optimize.minimize(loss_and_grad, x_init.copy(), method='L-BFGS-B', jac=True, bounds=bounds,
-        callback=callback, options={ 'ftol': rel_tol, 'maxiter': max_iter})
-    if not results.success:
-        print_warning('Local optimization fails to reach the optimal condition and will return the last solution.')
-    print_info('Data saved to {}/{:04d}.data.'.format(demo_name, len(opt_history) - 1))
+    for iter in range(max_iter):
+        results = scipy.optimize.minimize(loss_and_grad, lattice_init.copy(), method='L-BFGS-B', jac=True, bounds=bounds,
+            callback=callback, options={ 'ftol': rel_tol, 'maxiter': 1})
+        if not results.success:
+            print_warning('Local optimization fails to reach the optimal condition and will return the last solution.')
+        print_info('Data saved to {}/{:04d}.data.'.format(demo_name, len(opt_history) - 1))
+        params_and_J = env._lattice_to_shape_params(opt_history[-1][0][0])
+        env._embed_control_points_in_lattice(params_and_J[0])
 
     # Load results from demo_name.
     cnt = 0
@@ -173,16 +196,14 @@ if __name__ == '__main__':
     print_info('Rendering optimization history in {}/'.format(demo_name))
     # 000k.png renders opt_history[k], which is also the last element in 000k.data.
     cnt = len(opt_history)
-    for k in range(cnt - 1):
-        xk0, _, _ = opt_history[k]
-        xk1, _, _ = opt_history[k + 1]
-        for i in range(fps):
-            t = i / fps
-            xk = (1 - t) * xk0 + t * xk1
-            env.render(xk, '{:04d}.png'.format(k * fps + i), { 'solver': solver, 'spp': spp })
-            print_info('{}/mode_[0-9]*/{:04d}.png is ready.'.format(demo_name, k * fps + i))
-    env.render(opt_history[-1][0], '{:04d}.png'.format((cnt - 1) * fps), { 'solver': solver, 'spp': spp })
-    print_info('{}/mode_[0-9]*/{:04d}.png is ready.'.format(demo_name, (cnt - 1) * fps))
+    for k in range(cnt):
+        xk, _, _ = opt_history[k]
+        
+        x = env._lattice_and_weights_to_shape_params(env._lattice_nodes, xk[1])
+        env.render([x, xk[0]], '{:04d}.png'.format(k), { 'solver': solver, 'spp': spp })
+        print_info('{}/mode_[0-9]*/{:04d}.png is ready.'.format(demo_name, k))
+    # env.render(opt_history[-1][0], '{:04d}.png'.format((cnt - 1) * fps), { 'solver': solver, 'spp': spp })
+    # print_info('{}/mode_[0-9]*/{:04d}.png is ready.'.format(demo_name, (cnt - 1) * fps))
 
     # Get mode number.
     mode_num = 0
