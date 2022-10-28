@@ -96,7 +96,7 @@ if __name__ == '__main__':
     lattice_init = np.copy(env._lattice_nodes)
     lattice_bound = np.ones_like(lattice_init)
     lattice_bound = np.reshape(lattice_bound, (env._lattice_cell_nums[0]+1, env._lattice_cell_nums[1]+1, 2))
-    for i in range(2):
+    for i in range(1):
         lattice_bound[0, :, i] = 0
         lattice_bound[-1, :, i] = 0
         lattice_bound[:, 0, i] = 0
@@ -107,7 +107,6 @@ if __name__ == '__main__':
     def loss_and_grad(x):
         t_begin = time.time()
         params_and_J = env._lattice_to_shape_params(x)
-        env._embed_control_points_in_lattice(params_and_J[0])
         loss, grad, _ = env.solve(params_and_J, True, { 'solver': solver })
         # Normalize loss and grad.
         loss /= unit_loss

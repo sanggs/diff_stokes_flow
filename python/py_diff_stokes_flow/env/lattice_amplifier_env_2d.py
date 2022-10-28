@@ -40,8 +40,7 @@ class LatticeAmplifierEnv2d(EnvBase):
         lx, ly = self._lattice_cell_nums
         num_lattice_nodes = (lx+1)*(ly+1)
         self._lattice_nodes = np.zeros((num_lattice_nodes * 2, 1))
-        lattice_dx = 1./float(lx)
-
+        
         for ci in range(lx):
             for cj in range(ly):
                 for ni in range(2):
@@ -55,8 +54,6 @@ class LatticeAmplifierEnv2d(EnvBase):
         lx, ly = self._lattice_cell_nums
         assert(lx == ly)
 
-        lattice_dx = 1./float(lx)
-        lattice_dy = 1./float(ly)
         pts = np.copy(points)
         pts = np.reshape(pts, (2, -1, 2))
         pts[:, :, 0] *= (lx/cx)
@@ -123,19 +120,16 @@ class LatticeAmplifierEnv2d(EnvBase):
             self._lattice_weight_matrix[row_Idx + 1, 2 * col_Idx + 1] = v
 
         self._lattice_weight_matrix *= (cx/lx)
-
-        # np.savetxt('mat.txt' , self._lattice_weight_matrix)
-        # print(np.reshape(points, (2, -1, 2)))
-        # print(np.matmul(self._lattice_weight_matrix,self._lattice_nodes))
     
     def _lattice_to_shape_params(self, lattice_nodes, prt=False):
         p = np.matmul(self._lattice_weight_matrix, lattice_nodes)
-        self._embed_control_points_in_lattice(p)
         
-        p[0] = 10.0
-        p[7] = 1.25
-        p[9] = 8.75
-        p[14] = 10.0
+        cx, cy = self._cell_nums
+
+        p[0] = 1.0 * cx
+        p[7] = self._inlet_range[0] * cy
+        p[9] = self._inlet_range[1] * cy
+        p[14] = 1.0 * cx
         params = ndarray(np.concatenate([p.ravel()]))
         if (prt):
             print(params)
@@ -145,10 +139,12 @@ class LatticeAmplifierEnv2d(EnvBase):
     def _lattice_and_weights_to_shape_params(self, lattice_nodes, ew, prt=False):
         p = np.matmul(ew, lattice_nodes)
         
-        p[0] = 10.0
-        p[7] = 1.25
-        p[9] = 8.75
-        p[14] = 10.0
+        cx, cy = self._cell_nums
+
+        p[0] = 1.0 * cx
+        p[7] = self._inlet_range[0] * cy
+        p[9] = self._inlet_range[1] * cy
+        p[14] = 1.0 * cx
         params = ndarray(np.concatenate([p.ravel()]))
         if (prt):
             print(params)

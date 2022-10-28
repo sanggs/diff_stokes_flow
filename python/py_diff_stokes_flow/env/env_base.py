@@ -386,11 +386,11 @@ class EnvBase:
 
             lattice_points = np.reshape(lattice_points, ((self._lattice_cell_nums[0]+1)*(self._lattice_cell_nums[1]+1), 2))
             lattice_points *= self._lattice_scale
-            ax.scatter(lattice_points[:, 0], lattice_points[:, 1], color='red')
+            ax.scatter(lattice_points[:, 0], lattice_points[:, 1], color='green')
 
             control_points = np.reshape(control_points, (2, -1, 2))
             ax.scatter(control_points[0, :, 0], control_points[0, :, 1], color='blue')
-            ax.scatter(control_points[1, :, 0], control_points[1, :, 1], color='pink')
+            ax.scatter(control_points[1, :, 0], control_points[1, :, 1], color='red')
 
             # Plot other customized data if needed.
             self._render_customized_2d(scene, ax)
