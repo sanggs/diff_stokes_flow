@@ -7,13 +7,13 @@ class LatticeAmplifierEnv2d(EnvBase):
     def __init__(self, seed, folder):
         np.random.seed(seed)
 
-        cell_nums = (10, 10)
+        cell_nums = (64, 48)
         E = 100
         nu = 0.499
         vol_tol = 1e-3
         edge_sample_num = 2
         EnvBase.__init__(self, cell_nums, E, nu, vol_tol, edge_sample_num, folder)
-        self._lattice_scale = 2
+        self._lattice_scale = 4
         self._lattice_cell_nums = (int(cell_nums[0]/self._lattice_scale), int(cell_nums[1]/self._lattice_scale))
 
         # Initialize the parametric shapes.
@@ -52,7 +52,7 @@ class LatticeAmplifierEnv2d(EnvBase):
     def _embed_control_points_in_lattice(self, points):
         cx, cy = self._cell_nums
         lx, ly = self._lattice_cell_nums
-        assert(lx == ly)
+        # assert(lx == ly)
 
         pts = np.copy(points)
         pts = np.reshape(pts, (2, -1, 2))
@@ -81,8 +81,8 @@ class LatticeAmplifierEnv2d(EnvBase):
                         row_Idx = j * (n1 * n2) + i * n2
                         u = (x2 - x) if ni == 0 else (x - x1)
                         v = (y2 - y) if nj == 0 else (y - y1)
-                        self._lattice_weight_matrix[row_Idx + 0, 2 * col_Idx + 0] = u * v
-                        self._lattice_weight_matrix[row_Idx + 1, 2 * col_Idx + 1] = u * v
+                        self._lattice_weight_matrix[row_Idx + 0, 2 * col_Idx + 0] = u * v * (cx/lx)
+                        self._lattice_weight_matrix[row_Idx + 1, 2 * col_Idx + 1] = u * v * (cy/ly)
         
         pt = np.floor(pts[0][0])
         pt = pt.astype(np.int)
@@ -100,7 +100,7 @@ class LatticeAmplifierEnv2d(EnvBase):
             row_Idx = 0
 
             v = (y2 - y) if nj == 0 else (y - y1)
-            self._lattice_weight_matrix[row_Idx + 1, 2 * col_Idx + 1] = v
+            self._lattice_weight_matrix[row_Idx + 1, 2 * col_Idx + 1] = v * (cy/ly)
 
         pt = np.floor(pts[1][3])
         pt = pt.astype(np.int)
@@ -117,9 +117,9 @@ class LatticeAmplifierEnv2d(EnvBase):
             col_Idx = (pt[0] + ni) * (ly+1) + (pt[1] + nj)
             row_Idx = 14
             v = (y2 - y) if nj == 0 else (y - y1)
-            self._lattice_weight_matrix[row_Idx + 1, 2 * col_Idx + 1] = v
+            self._lattice_weight_matrix[row_Idx + 1, 2 * col_Idx + 1] = v  * (cy/ly)
 
-        self._lattice_weight_matrix *= (cx/lx)
+        # self._lattice_weight_matrix *= (cx/lx)
     
     def _lattice_to_shape_params(self, lattice_nodes, prt=False):
         p = np.matmul(self._lattice_weight_matrix, lattice_nodes)

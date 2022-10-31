@@ -84,10 +84,6 @@ class EnvBase:
         edge_sample_num = int(edge_sample_num)
         assert edge_sample_num > 1
 
-        if folder is not None:
-            folder = Path(folder)
-            create_folder(folder, exist_ok=True)
-
         # Create data members.
         self._cell_nums = np.copy(cell_nums)
         self._node_nums = ndarray([n + 1 for n in cell_nums]).astype(np.int32)
@@ -282,7 +278,8 @@ class EnvBase:
         # For the basic _render_2d function, we assume mode = 1.
         mode_num = len(info)
         for m in range(mode_num):
-            mode_folder = Path(self._folder / 'mode_{:04d}'.format(m))
+            folder_name = self._folder + '_{}_{}_{}_{}'.format(self._cell_nums[0], self._cell_nums[1], self._lattice_cell_nums[0], self._lattice_cell_nums[1])
+            mode_folder = Path(folder_name+'/mode_{:04d}'.format(m))
             create_folder(mode_folder, exist_ok=True)
             scene = info[m]['scene']
             u_field = info[m]['velocity_field']
@@ -345,7 +342,7 @@ class EnvBase:
                             u_max = uij_norm
                         if uij_norm < u_min:
                             u_min = uij_norm
-
+            # print(u_min, u_max)
             for i in range(cx + 1):
                 for j in range(cy + 1):
                     if not fluidic_node[i, j]: continue
