@@ -215,6 +215,88 @@ class EnvBase:
                 self._cell_options['edge_sample_num']
             )
 
+            # cx, cy = self._cell_nums
+            # fig = plt.figure(figsize=(12, 10))
+            # ax = fig.add_subplot(111)
+            # padding = 5
+            # # ax.set_title('Loss: {:3.6e}'.format(loss))
+            # ax.set_xticks([])
+            # ax.set_yticks([])
+            # ax.set_xlim([-padding, cx + padding])
+            # ax.set_ylim([-padding, cy + padding])
+            # ax.set_aspect('equal')
+            # ax.axis('off')
+
+            # # Plot cells.
+            # lines = []
+            # colors = []
+            # shift = 0.0
+            # fluidic_node = np.ones((cx + 1, cy + 1))
+            # for i in range(cx):
+            #     for j in range(cy):
+            #         if scene.IsFluidCell((i, j)):
+            #             color = 'k'
+            #         elif scene.IsSolidCell((i, j)):
+            #             color = 'k'
+            #             fluidic_node[i, j] = fluidic_node[i + 1, j] = fluidic_node[i, j + 1] = fluidic_node[i + 1, j + 1] = 0
+            #         else:
+            #             color = 'k'
+            #         pts = [(i + shift, j + shift),
+            #             (i + 1 - shift, j + shift),
+            #             (i + 1 - shift, j + 1 - shift),
+            #             (i + shift, j + 1 - shift)
+            #         ]
+            #         lines += [
+            #             (pts[0], pts[1]),
+            #             (pts[1], pts[2]),
+            #             (pts[2], pts[3]),
+            #             (pts[3], pts[0])
+            #         ]
+            #         colors += [color,] * 4
+            # ax.add_collection(mc.LineCollection(lines, colors=colors, linewidth=0.5))
+
+            # print("Printing from plotting")
+            # nodes = []
+            # dists = []
+            # colors = []
+            # for i in range(cx+1):
+            #     for j in range(cy+1):
+            #         nodes.append([i, j])
+            #         dists.append(scene.GetSignedDistance([i, j]))
+            #         if (dists[-1] <= 0):
+            #             colors.append('blue') # Fluid
+            #         else:
+            #             colors.append('red') # Solid
+            #         print('dist at [{}, {}] = {}'.format(i, j, dists[-1]))
+            # nodes = np.array(nodes)
+            # ax.scatter(nodes[:, 0], nodes[:, 1], color=colors)
+
+            # # Plot solid-fluid interfaces.
+            # lines = []
+            # def cutoff(d0, d1):
+            #     assert d0 * d1 <= 0
+            #     # (0, d0), (t, 0), (1, d1).
+            #     # t / -d0 = 1 / (d1 - d0)
+            #     return -d0 / (d1 - d0)
+            
+            # for i in range(cx):
+            #     for j in range(cy):
+            #         if not scene.IsMixedCell((i, j)): continue
+            #         ps = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)]
+            #         ds = [scene.GetSignedDistance(p) for p in ps]
+            #         ps = ndarray(ps)
+            #         vs = []
+            #         for k in range(4):
+            #             k_next = (k + 1) % 4
+            #             if ds[k] * ds[k_next] <= 0:
+            #                 t = cutoff(ds[k], ds[k_next])
+            #                 vs.append((1 - t) * ps[k] + t * ps[k_next])
+            #         vs_len = len(vs)
+            #         for k in range(vs_len):
+            #             lines.append((vs[k], vs[(k + 1) % vs_len]))
+            # ax.add_collection(mc.LineCollection(lines, colors='tab:orange', linewidth=1))
+            # plt.show()
+
             # Initialize the Dirichlet boundary conditions.
             node_bnd_dict = {}
             for dof, val in self._node_boundary_info:
