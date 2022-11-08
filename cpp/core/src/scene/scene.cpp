@@ -38,6 +38,7 @@ void Scene<dim>::InitializeCell(const real E, const real nu, const real threshol
         }
         // Ready to initialize this cell.
         cell.Initialize(E, nu, threshold, edge_sample_num, sdf_at_corners);
+        // std::cout << cell_idx[0] << "," << cell_idx[1] << " " << cell.IsFluidCell() << " " << cell.IsSolidCell() << std::endl;
     }
 }
 

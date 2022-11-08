@@ -4,6 +4,8 @@
 #include "shape/plane.h"
 #include "shape/sphere.h"
 #include "shape/polar_bezier.h"
+#include "shape/piecewise_linear.h"
+#include <cmath>
 
 template<>
 void ShapeComposition<2>::AddParametricShape(const std::string& name, const int param_num) {
@@ -21,6 +23,8 @@ void ShapeComposition<2>::AddParametricShape(const std::string& name, const int 
         // Do not flip in 2D.
         const bool flip = false;
         info.shape = std::make_shared<PolarBezier2d>(flip);
+    } else if (name == "piecewise_linear") {
+        info.shape = std::make_shared<PiecewiseLinear2d>();
     } else {
         PrintError("Unsupported shape name: " + name);
     }
@@ -60,6 +64,7 @@ void ShapeComposition<dim>::InitializeCustomizedData() {
             ParametricShape<dim>::params().begin() + param_cur_idx + info.param_num);
         info.shape->Initialize(ParametricShape<dim>::cell_nums(), shape_param, true);
         param_cur_idx += info.param_num;
+        // std::cout << param_cur_idx << std::endl;
     }
 }
 
@@ -68,6 +73,7 @@ const real ShapeComposition<dim>::ComputeSignedDistanceAndGradients(const std::a
     std::vector<real>& grad) const {
     real min_pos_dist = std::numeric_limits<real>::infinity();
     real min_neg_dist = std::numeric_limits<real>::infinity();
+    real min_dist = std::numeric_limits<real>::infinity();
     std::vector<real> min_pos_dist_grad, min_neg_dist_grad;
     CheckError(!shape_info_.empty(), "You need to have at least one shape.");
     int min_pos_param_begin = 0, min_neg_param_begin = 0;
@@ -76,18 +82,16 @@ const real ShapeComposition<dim>::ComputeSignedDistanceAndGradients(const std::a
     for (const auto& info : shape_info_) {
         std::vector<real> shape_grad;
         const real shape_dist = info.shape->ComputeSignedDistanceAndGradients(point, shape_grad);
-        if (shape_dist >= 0) {
-            // This point is inside the solid phase.
-            is_solid = true;
-            if (shape_dist < min_pos_dist) {
+        if (std::abs(shape_dist) < min_dist) {
+            is_solid = std::signbit(shape_dist) ? false : true;
+            min_dist = is_solid ? shape_dist : -shape_dist;
+            if (is_solid) {
                 min_pos_dist = shape_dist;
                 min_pos_dist_grad = shape_grad;
                 min_pos_param_begin = info.param_begin_idx;
                 min_pos_param_num = info.param_num;
             }
-        } else {
-            // This point is in the fluid phase.
-            if (-shape_dist < min_neg_dist) {
+            else {
                 min_neg_dist = -shape_dist;
                 min_neg_dist_grad = shape_grad;
                 min_neg_param_begin = info.param_begin_idx;
