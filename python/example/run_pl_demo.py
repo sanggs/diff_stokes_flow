@@ -14,7 +14,7 @@ import os
 from py_diff_stokes_flow.common.common import ndarray, create_folder, print_warning
 from py_diff_stokes_flow.common.common import print_info, print_ok, print_error, print_warning, ndarray
 from py_diff_stokes_flow.common.grad_check import check_gradients
-from py_diff_stokes_flow.common.display import export_gif
+from py_diff_stokes_flow.common.display import export_gif, export_pdf
 
 # Update this dictionary if you would like to add new demos.
 all_demo_names = {
@@ -59,6 +59,10 @@ def run_optimization(env, best_sample, unit_loss, max_iter):
     x_init = np.copy(best_sample)
     param_and_J_init = env._variables_to_shape_params(x_init) # Important: Do not remove this line
     lattice_init = np.copy(env._lattice_nodes)
+    global lc
+    lc = np.copy(lattice_init)
+    global reg_factor
+    reg_factor = 0.1
     lattice_bound = np.ones_like(lattice_init)
     lattice_bound = np.reshape(lattice_bound, (env._lattice_cell_nums[0]+1, env._lattice_cell_nums[1]+1, 2))
     lattice_bound = np.reshape(lattice_bound, (-1, 1))
@@ -69,6 +73,15 @@ def run_optimization(env, best_sample, unit_loss, max_iter):
         t_begin = time.time()
         params_and_J = env._lattice_to_shape_params(x)
         loss, grad, _ = env.solve(params_and_J, True, { 'solver': solver })
+        
+        global lc
+        lc = np.reshape(lc, x.shape)
+        reg_loss = np.linalg.norm((x-lc))
+        if (reg_loss > 1e-4):
+            loss += reg_factor * reg_loss
+            reg_grad = reg_factor/reg_loss * (x-lc)
+            grad = grad + ndarray(reg_grad)
+        
         # Normalize loss and grad.
         loss /= unit_loss
         grad /= unit_loss
@@ -100,7 +113,13 @@ def run_optimization(env, best_sample, unit_loss, max_iter):
         print_info('Data saved to {}/{:04d}.data.'.format(demo_name, len(opt_history) - 1))
         params_and_J = env._lattice_to_shape_params(opt_history[-1][0][0])
         env._embed_control_points_in_lattice(params_and_J[0])
-
+        if iter <= 4:
+            reg_factor = 0.01
+        elif iter <= 8:
+            reg_factor = 0.001
+        else:
+            reg_factor = 0
+        
 def visualize_results(env, demo_name):
     cnt = 0
     while True:
@@ -162,8 +181,8 @@ def visualize_results(env, demo_name):
         if not mode_folder.exists():
             break
 
-        export_gif(mode_folder, '{}_{:04d}.gif'.format(demo_name, mode_num), fps=fps)
-        print_info('Video {}_{:04d}.gif is ready.'.format(demo_name, mode_num))
+        export_pdf(mode_folder, '{}_{:04d}.pdf'.format(demo_name, mode_num), fps=fps)
+        print_info('Video {}_{:04d}.pdf is ready.'.format(demo_name, mode_num))
 
         mode_num += 1
 
