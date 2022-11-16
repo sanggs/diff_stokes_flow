@@ -154,20 +154,20 @@ def plot_curve_points(curves, cx, cy):
             colors += [color,] * 4
     ax.add_collection(mc.LineCollection(lines, colors=colors, linewidth=0.5))
 
-    nodes = []
-    dists = []
-    colors = []
-    for i in range(cx+1):
-        for j in range(cy+1):
-            nodes.append([i, j])
-            dists.append(get_signed_distance(np.array([i, j]), curves))
-            if (dists[-1] <= 0):
-                colors.append('red')
-            else:
-                colors.append('blue')
-            # print('dist at [{}, {}] = {}'.format(i, j, dists[-1]))
-    nodes = np.array(nodes)
-    ax.scatter(nodes[:, 0], nodes[:, 1], color=colors)
+    # nodes = []
+    # dists = []
+    # colors = []
+    # for i in range(cx+1):
+    #     for j in range(cy+1):
+    #         nodes.append([i, j])
+    #         dists.append(get_signed_distance(np.array([i, j]), curves))
+    #         if (dists[-1] <= 0):
+    #             colors.append('red')
+    #         else:
+    #             colors.append('blue')
+    #         # print('dist at [{}, {}] = {}'.format(i, j, dists[-1]))
+    # nodes = np.array(nodes)
+    # ax.scatter(nodes[:, 0], nodes[:, 1], color=colors)
 
     # Plot solid-fluid interfaces.
     lines = []
@@ -191,7 +191,8 @@ def plot_curve_points(curves, cx, cy):
     ax.add_collection(mc.LineCollection(lines, colors='tab:orange', linewidth=1))
 
     #Plot end points of control points
-    # ax.plot(control_points[:, 0], control_points[:, 1], '*--', color='red')
+    ax.plot(curves[0][:, 0], curves[0][:, 1], '*', color='blue')
+    ax.plot(curves[1][:, 0], curves[1][:, 1], '*', color='red')
 
 def linear_interpolate(p0, p1, t):
     return p0 + t * (p1 - p0)
@@ -218,9 +219,9 @@ def divide_bezier_curve(cubic_bezier_control_points, num_dof):
         points[i+1] = get_point_on_bezier_curve(cubic_bezier_control_points, ratios[i])    
     return points
 
-cx = 6
-cy = 6
-num_dof = 7
+cx = 10
+cy = 10
+num_dof = 20
 
 lower_bounds = [[0, 1], [0.15, 0.35]]
 lower_bounds[0][0] *= cx
