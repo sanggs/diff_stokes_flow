@@ -65,6 +65,16 @@ def run_optimization(env, best_sample, unit_loss, max_iter):
     reg_factor = 0.1
     lattice_bound = np.ones_like(lattice_init)
     lattice_bound = np.reshape(lattice_bound, (env._lattice_cell_nums[0]+1, env._lattice_cell_nums[1]+1, 2))
+    lattice_bound[0, :, 0] = 0.0
+    lattice_bound[0, :, 1] = 0.0
+    lattice_bound[:, 0, 0] = 0.0
+    lattice_bound[:, 0, 1] = 0.0
+    lattice_bound[:, -1, 0] = 0.0
+    lattice_bound[:, -1, 1] = 0.0
+    lattice_bound[-1, :, 0] = 0.0
+    lattice_bound[-1, :, 0] = 0.0
+    # print(np.reshape(lattice_init, np.shape(lattice_bound))[:, :, 0] + lattice_bound[:, :, 0])
+    # print(np.reshape(lattice_init, np.shape(lattice_bound))[:, :, 1] + lattice_bound[:, :, 1])
     lattice_bound = np.reshape(lattice_bound, (-1, 1))
     
     bounds = scipy.optimize.Bounds(lattice_init - lattice_bound, lattice_init + lattice_bound)
@@ -74,19 +84,46 @@ def run_optimization(env, best_sample, unit_loss, max_iter):
         params_and_J = env._lattice_to_shape_params(x)
         loss, grad, _ = env.solve(params_and_J, True, { 'solver': solver })
         
+        functional_loss = loss
+
         global lc
         lc = np.reshape(lc, x.shape)
         reg_loss = np.linalg.norm((x-lc))
+        
+        # cpy = np.copy(x)
+        # lx, ly = env._lattice_cell_nums
+        # cpy = np.reshape(cpy, (lx+1, ly+1, 2))
+
+        # padded_cpy = np.zeros((lx+3, ly+3, 2))
+        # padded_cpy[1:lx+2, 1:ly+2, :] = cpy[:, :, :]
+
+        # gradient = np.zeros_like(cpy)
+        # gradient[:, :, 0] = padded_cpy[2:lx+3, 1:ly+2, 0] - padded_cpy[0:lx+1, 1:ly+2, 0]
+        # gradient[:, :, 1] = padded_cpy[1:lx+2, 2:, 1] - padded_cpy[1:lx+2, 0:lx+1, 1]
+
+        # laplacian = np.zeros_like(cpy)
+        # for i in range(2):
+        #     laplacian[:, :, i] = -4.0 * padded_cpy[1:lx+2, 1:ly+2, 0]
+        #     laplacian[:, :, i] += 1.0 * padded_cpy[2:lx+3, 1:ly+2, 0] # plus x
+        #     laplacian[:, :, i] += 1.0 * padded_cpy[0:lx+1, 1:ly+2, 0] # minus x
+        #     laplacian[:, :, i] += 1.0 * padded_cpy[1:lx+2, 2:ly+3, 0] # plus y
+        #     laplacian[:, :, i] += 1.0 * padded_cpy[1:lx+2, 0:ly+1, 0] # minus y
+
+        # reg_loss = 0.5 * reg_factor *  (np.sum(gradient**2))
         if (reg_loss > 1e-4):
             loss += reg_factor * reg_loss
             reg_grad = reg_factor/reg_loss * (x-lc)
+            
+            # reg_grad = reg_factor * laplacian
+            reg_grad = np.reshape(reg_grad, grad.shape)
+
             grad = grad + ndarray(reg_grad)
         
         # Normalize loss and grad.
         loss /= unit_loss
         grad /= unit_loss
         t_end = time.time()
-        print('loss: {:3.6e}, |grad|: {:3.6e}, time: {:3.6f}s'.format(loss, np.linalg.norm(grad), t_end - t_begin))
+        print('loss: {:3.6e}, functional_loss: {:3.6e}, reg_loss: {:3.6e}, |grad|: {:3.6e}, time: {:3.6f}s'.format(loss, functional_loss, reg_loss, np.linalg.norm(grad), t_end - t_begin))
         return loss, grad
 
     loss, grad = loss_and_grad(lattice_init)
@@ -99,6 +136,7 @@ def run_optimization(env, best_sample, unit_loss, max_iter):
         global opt_history
         cnt = len(opt_history)
         print_info('Summary of iteration {:4d}'.format(cnt))
+        # if (loss < opt_history[-1][1]): # Confirm if loss is lesser
         opt_history.append(((x.copy(), np.copy(ew)), loss, grad.copy()))
         print_info('loss: {:3.6e}, |grad|: {:3.6e}, |x|: {:3.6e}, |p|: {:3.6e}'.format(
             loss, np.linalg.norm(grad), np.linalg.norm(x), np.linalg.norm(x)))
@@ -107,16 +145,16 @@ def run_optimization(env, best_sample, unit_loss, max_iter):
 
     for iter in range(max_iter):
         results = scipy.optimize.minimize(loss_and_grad, lattice_init.copy(), method='L-BFGS-B', jac=True, bounds=bounds,
-            callback=callback, options={ 'ftol': rel_tol, 'maxiter': 10})
+            callback=callback, options={ 'ftol': rel_tol, 'maxiter': 100})
         if not results.success:
             print_warning('Local optimization fails to reach the optimal condition and will return the last solution.')
         print_info('Data saved to {}/{:04d}.data.'.format(demo_name, len(opt_history) - 1))
         params_and_J = env._lattice_to_shape_params(opt_history[-1][0][0])
         env._embed_control_points_in_lattice(params_and_J[0])
         if iter <= 4:
-            reg_factor = 0.01
+            reg_factor = 0.1
         elif iter <= 8:
-            reg_factor = 0.001
+            reg_factor = 0.01
         else:
             reg_factor = 0
         

@@ -19,8 +19,8 @@ class PiecewiseLinearEnv2d(EnvBase):
         self._lattice_scale = 2
         self._lattice_cell_nums = (int(cell_nums[0]/self._lattice_scale), int(cell_nums[1]/self._lattice_scale))
 
-        self._num_pieces_upper = 10
-        self._num_pieces_lower = 10
+        self._num_pieces_upper = 21
+        self._num_pieces_lower = 21
 
         # Initialize the parametric shapes.
         shape_info = ('piecewise_linear', 4)
@@ -72,13 +72,19 @@ class PiecewiseLinearEnv2d(EnvBase):
         self._point_shape_mat = np.zeros((num_points, num_shapes_dof))
         for i in range(0, self._num_pieces_lower):
             for j in range(4):
+                # if ((i == 0 and j < 2) or (i == self._num_pieces_lower-1 and j >= 2)):
                 self._point_shape_mat[2*i+j, 4*i+j] = 1.0
+                # else:
+                #     self._point_shape_mat[2*i+j, 4*i+j] = 0.5
 
         co = self._num_pieces_lower * 4
         ro = 2 * self._num_pieces_lower + 2 
         for i in range(0, self._num_pieces_upper):
             for j in range(4):
+                # if ((i == 0 and j < 2) or (i == self._num_pieces_upper-1 and j >= 2)):
                 self._point_shape_mat[ro + 2*i+j, co + 4*i+j] = 1.0
+                # else:
+                #     self._point_shape_mat[ro + 2*i+j, co + 4*i+j] = 0.5
 
     def _embed_control_points_in_lattice(self, curves):
         points = np.matmul(self._point_shape_mat, curves)
