@@ -354,13 +354,25 @@ class EnvBase:
 
     def _render_2d(self, xk, img_name, options):
         assert self._folder
-        lattice_points = xk[1]
-        control_points = xk[0][0]
-        loss, info = self.solve(xk[0], False, options)
+
+        loss = None
+        viz_lattice = True
+        if (len(xk) != 2):
+            params_and_J = self._lattice_to_shape_params(xk)
+            loss, info = self.solve(params_and_J, False, options)
+            viz_lattice = False
+        else:
+            lattice_points = xk[1]
+            control_points = xk[0][0]
+            loss, info = self.solve(xk[0], False, options)
+        assert(loss is not None)
         # For the basic _render_2d function, we assume mode = 1.
         mode_num = len(info)
         for m in range(mode_num):
-            folder_name = self._folder + '_{}_{}_{}_{}'.format(self._cell_nums[0], self._cell_nums[1], self._lattice_cell_nums[0], self._lattice_cell_nums[1])
+            if not viz_lattice:
+                folder_name = self._folder + '_{}_{}'.format(self._cell_nums[0], self._cell_nums[1])
+            else:
+                folder_name = self._folder + '_{}_{}_{}_{}'.format(self._cell_nums[0], self._cell_nums[1], self._lattice_cell_nums[0], self._lattice_cell_nums[1])
             mode_folder = Path(folder_name+'/mode_{:04d}'.format(m))
             create_folder(mode_folder, exist_ok=True)
             scene = info[m]['scene']
@@ -463,11 +475,16 @@ class EnvBase:
                         lines.append((vs[k], vs[(k + 1) % vs_len]))
             ax.add_collection(mc.LineCollection(lines, colors='tab:orange', linewidth=1))
 
-            lattice_points = np.reshape(lattice_points, ((self._lattice_cell_nums[0]+1)*(self._lattice_cell_nums[1]+1), 2))
-            lattice_points *= self._lattice_scale
-            ax.scatter(lattice_points[:, 0], lattice_points[:, 1], color='green')
+            if (viz_lattice):
+                lattice_points = np.reshape(lattice_points, ((self._lattice_cell_nums[0]+1)*(self._lattice_cell_nums[1]+1), 2))
+                lattice_points *= self._lattice_scale
+                ax.scatter(lattice_points[:, 0], lattice_points[:, 1], color='green')
 
-            control_points = np.reshape(control_points, (2, -1, 2))
+            if not viz_lattice:
+                control_points = np.reshape(xk, (2, -1, 2))
+            else:
+                control_points = np.reshape(control_points, (2, -1, 2))
+            # print(control_points.shape)
             ax.scatter(control_points[0, :, 0], control_points[0, :, 1], color='blue')
             ax.scatter(control_points[1, :, 0], control_points[1, :, 1], color='red')
 
