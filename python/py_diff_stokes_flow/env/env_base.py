@@ -344,6 +344,17 @@ class EnvBase:
         for (_, J), scene, g, f in zip(param_and_J, scenes, grads, forward_result):
             g = ndarray(scene.Backward(solver, f, g))
             grad += J.T @ g
+
+        self.compliance_loss = []
+        self.compliance_grad = []
+        for (_, J), scene, u_single, f in zip(param_and_J, scenes, u, forward_result):
+            compl_loss = scene.ComputeComplianceEnergy(u_single)
+            dEdu = scene.ComputeComplianceEnergyGradient(u_single)
+            compl_grad = scene.Backward(solver, f, dEdu)
+            compl_grad = J.T @ compl_grad
+            self.compliance_grad.append(compl_grad)
+            self.compliance_loss.append(compl_loss)
+        
         return loss, grad, info
 
     def render(self, xk, img_name, options):

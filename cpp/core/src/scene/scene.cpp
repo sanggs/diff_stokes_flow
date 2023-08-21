@@ -225,6 +225,8 @@ const std::vector<real> Scene<dim>::Forward(const std::string& qp_solver_name) {
     VectorXr d_ext = VectorXr::Zero(var_num + C_row_num);
     d_ext.tail(C_row_num) = d;
 
+    K_compliance = ToSparseMatrix(var_num, var_num, K_nonzeros);
+
     dKC_nonzeros_ = dK_nonzeros;
     for (int p = 0; p < param_num; ++p) {
         for (const auto& triplet : dC_nonzeros[p]) {
@@ -281,6 +283,27 @@ const std::vector<real> Scene<dim>::Forward(const std::string& qp_solver_name) {
 
     // Return the solution.
     return ToStdVector(x);
+}
+
+template<int dim>
+const real Scene<dim>::ComputeComplianceEnergy(const std::vector<real>& x) {
+    VectorXr xVec = VectorXr::Zero(x.size());
+    for (int i = 0; i < x.size(); i++) {
+        xVec[i] = x[i];
+    }
+    VectorXr K_xVec = K_compliance * xVec;
+    real compliance_energy = 0.5 * xVec.dot(K_xVec);
+    return compliance_energy;
+}
+
+template<int dim>
+const std::vector<real> Scene<dim>::ComputeComplianceEnergyGradient(const std::vector<real>& x) {
+    VectorXr xVec = VectorXr::Zero(x.size());
+    for (int i = 0; i < x.size(); i++) {
+        xVec[i] = x[i];
+    }
+    VectorXr K_xVec = K_compliance * xVec;
+    return ToStdVector(K_xVec);
 }
 
 template<int dim>

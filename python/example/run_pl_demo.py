@@ -84,6 +84,11 @@ def run_optimization(env, best_sample, unit_loss, max_iter):
         params_and_J = env._lattice_to_shape_params(x)
         loss, grad, _ = env.solve(params_and_J, True, { 'solver': solver })
         
+        compl_weight = 0.0001
+        compl_loss = compl_weight * env.compliance_loss[0]
+        compl_grad = compl_weight * ndarray(env.compliance_grad[0])
+        # print_info("Compliance loss = {} |Compliance Grad| = {}".format(compliance_loss, np.linalg.norm(compliance_grad)))
+
         functional_loss = loss
 
         global lc
@@ -118,12 +123,16 @@ def run_optimization(env, best_sample, unit_loss, max_iter):
             reg_grad = np.reshape(reg_grad, grad.shape)
 
             grad = grad + ndarray(reg_grad)
-        
+
+        if (compl_loss > 1e-4):
+            loss += compl_loss
+            grad = grad + compl_grad
+
         # Normalize loss and grad.
         loss /= unit_loss
         grad /= unit_loss
         t_end = time.time()
-        print('loss: {:3.6e}, functional_loss: {:3.6e}, reg_loss: {:3.6e}, |grad|: {:3.6e}, time: {:3.6f}s'.format(loss, functional_loss, reg_loss, np.linalg.norm(grad), t_end - t_begin))
+        print('loss: {:3.6e}, functional_loss: {:3.6e}, reg_loss: {:3.6e}, compl_loss: {:3.6e}, |grad|: {:3.6e}, time: {:3.6f}s'.format(loss, functional_loss, reg_loss, compl_loss, np.linalg.norm(grad), t_end - t_begin))
         return loss, grad
 
     loss, grad = loss_and_grad(lattice_init)
@@ -148,7 +157,8 @@ def run_optimization(env, best_sample, unit_loss, max_iter):
             callback=callback, options={ 'ftol': rel_tol, 'maxiter': 100})
         if not results.success:
             print_warning('Local optimization fails to reach the optimal condition and will return the last solution.')
-        print_info('Data saved to {}/{:04d}.data.'.format(demo_name, len(opt_history) - 1))
+        else:
+            print_info('Data saved to {}/{:04d}.data.'.format(demo_name, len(opt_history) - 1))
         params_and_J = env._lattice_to_shape_params(opt_history[-1][0][0])
         env._embed_control_points_in_lattice(params_and_J[0])
         if iter <= 4:

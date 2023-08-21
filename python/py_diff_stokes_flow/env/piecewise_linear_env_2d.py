@@ -10,17 +10,17 @@ class PiecewiseLinearEnv2d(EnvBase):
     def __init__(self, seed, folder):
         np.random.seed(seed)
 
-        cell_nums = (20, 20)
+        cell_nums = (10, 10)
         E = 100
         nu = 0.499
         vol_tol = 1e-3
         edge_sample_num = 2
         EnvBase.__init__(self, cell_nums, E, nu, vol_tol, edge_sample_num, folder)
-        self._lattice_scale = 2
+        self._lattice_scale = 4
         self._lattice_cell_nums = (int(cell_nums[0]/self._lattice_scale), int(cell_nums[1]/self._lattice_scale))
 
-        self._num_pieces_upper = 10
-        self._num_pieces_lower = 10
+        self._num_pieces_upper = 21
+        self._num_pieces_lower = 21
 
         # Initialize the parametric shapes.
         shape_info = ('piecewise_linear', 4)

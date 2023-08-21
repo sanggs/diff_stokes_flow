@@ -84,9 +84,6 @@ const real PiecewiseLinear2d::ComputeSignedDistanceAndGradients(const std::array
     const real z = q.x() * min_tangent.y() - q.y() * min_tangent.x(); // cross product
     const real sign = z >= 0 ? 1.0 : -1.0;
 
-    // if (point[1] == (real)4)
-    //     std::cout << "[" << p[0] << "," << p[1] << "] " << z << " " << sign << " " << min_dist << std::endl; 
-
     // Compute the gradient.
     // control_point -> coeff -> min_t -> min_proj -> min_dist.
     // According to the envelope theorem, we can safely assume min_t does not change during the gradient computation.
