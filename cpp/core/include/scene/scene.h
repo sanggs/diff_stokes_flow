@@ -22,6 +22,7 @@ public:
     const std::vector<real> Backward(const std::string& qp_solver_name, const std::vector<real>& forward_result,
         const std::vector<real>& partial_loss_partial_solution_field);
     const std::vector<real> GetVelocityFieldFromForward(const std::vector<real>& forward_result) const;
+    const std::vector<real> GetCellDensities() const;
 
     const int GetNodeDof(const std::array<int, dim>& node_idx, const int node_dim) const;
     const real GetSignedDistance(const std::array<int, dim>& node_idx) const;

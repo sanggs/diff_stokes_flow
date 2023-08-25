@@ -23,7 +23,7 @@ if(PARDISO_AVAILABLE)
     add_definitions(-DPARDISO_AVAILABLE)
     add_library(pardiso SHARED IMPORTED)
     set_target_properties(pardiso PROPERTIES
-        IMPORTED_LOCATION "$ENV{PARDISO_LIC_PATH}/libpardiso600-GNU720-X86-64.so"
+        IMPORTED_LOCATION "$ENV{PARDISO_LIC_PATH}/libpardiso800-GNU831-X86-64-March18-2023.so"
     )
 else()
     message("Pardiso not detected.")

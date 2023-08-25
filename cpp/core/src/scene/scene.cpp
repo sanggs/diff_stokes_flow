@@ -333,6 +333,20 @@ const std::vector<real> Scene<dim>::GetVelocityFieldFromForward(const std::vecto
 }
 
 template<int dim>
+const std::vector<real> Scene<dim>::GetCellDensities() const {
+    const int cell_num = shape_.cell_num_prod();
+    std::vector<real> rho(cell_num, (real)0.);
+    
+    #pragma omp parallel for
+    for (int i = 0; i < cell_num; ++i) {
+        const auto& cell = cells_[i];
+        rho[i] = cell.area();
+    }
+    
+    return rho;
+}
+
+template<int dim>
 const int Scene<dim>::GetNodeDof(const std::array<int, dim>& node_idx, const int node_dim) const {
     return GetIndex(node_idx, shape_.node_nums()) * dim + node_dim;
 }
