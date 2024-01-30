@@ -34,6 +34,8 @@ public:
     const bool IsFluidCell(const std::array<int, dim>& cell_idx) const;
     const bool IsMixedCell(const std::array<int, dim>& cell_idx) const;
 
+    const real ComputeComplianceEnergy(const std::vector<real>& x);
+
 private:
     // Geometry information.
     ShapeComposition<dim> shape_;
@@ -50,6 +52,8 @@ private:
     PardisoSolver pardiso_solver_;
     SparseMatrix KC_;
     std::vector<SparseMatrixElements> dKC_nonzeros_;
+
+    SparseMatrix K_compliance;
 
     // Fluidic force density: this implements -Ku.
     std::vector<real> fluidic_force_density_;
