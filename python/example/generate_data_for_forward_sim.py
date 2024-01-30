@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import pickle
 import os
+import json
 
 from py_diff_stokes_flow.common.common import print_info, print_ok, print_error, print_warning, ndarray
 from py_diff_stokes_flow.common.grad_check import check_gradients
@@ -19,6 +20,10 @@ from py_diff_stokes_flow.common.display import export_gif
 all_demo_names = {
     # ID: (module name, class name).
     'amplifier': ('amplifier_env_2d', 'AmplifierEnv2d'),
+    'piecewise_linear_single': ('piecewise_linear_env_2d', 'PiecewiseLinearEnv2d'),
+    'piecewise_linear': ('piecewise_linear_env_2d', 'PiecewiseLinearEnv2d'),
+    'piecewise_linear_io': ('piecewise_linear_inlet_outlet_env_2d', 'PiecewiseLinearInletOutletEnv2d'),
+    'piecewise_linear_sphere': ('piecewise_linear_sphere_env_2d', 'PiecewiseLinearSphereEnv2d'),
     'flow_averager': ('flow_averager_env_3d', 'FlowAveragerEnv3d'),
     'superposition_gate': ('superposition_gate_env_3d', 'SuperpositionGateEnv3d'),
     'funnel': ('funnel_env_3d', 'FunnelEnv3d'),
@@ -32,69 +37,134 @@ all_demo_names = {
 #             f.write(v)
 #             f.write(os.linesep.encode("utf-8"))
 
-def export_data(vfs, den, vns, frame = 1, folder = 'data/'):
+def export_invariables(info_dict, folder = 'data/'):
     if not os.path.isdir(folder):
         os.makedirs(folder)
+    fname = os.path.join(folder, 'info.json')
+    with open(fname, 'w') as f:
+        json.dump(info_dict, f)
+
+def export_data(vfs, den, vns = None, frame = 1, folder = 'data/'):
+    if not os.path.isdir(folder):
+        os.makedirs(folder)
+    vfs = np.array(vfs)
+    shape = np.shape(vfs)
+    shape = shape[::-1]
+    np_vfs = np.zeros(shape)
+    for i in range(shape[0]):
+        np_vfs[i, :, :] = vfs[:, :, i]
+
     vfsfname = os.path.join(folder, str(frame) + '_vFS.npy')
     dfname = os.path.join(folder, str(frame) + '_rho.npy')
-    vnsfname = os.path.join(folder, str(frame) + '_vNS.npy')
-    np.save(vfsfname, np.array(vfs))
-    np.save(vnsfname, np.array(vns))
-    np.save(dfname, np.array(den))
+    np.save(vfsfname, np_vfs)
+    
+    np_den = np.array(den)
+    shape = (shape[1]-1, shape[2]-1)
+    np_den = np.reshape(np_den, shape)
+    np.save(dfname, np_den)
 
+    if (vns is not None):
+        vnsfname = os.path.join(folder, str(frame) + '_vNS.npy')
+        np.save(vnsfname, np.array(vns))
+
+def prepare_invariant_data(env):
+    dim = 2
+    domain_size = [int(cn) for cn in env._cell_nums]
+    dx = 1.
+    nu = env._cell_options['nu']
+    E = env._cell_options['E']
+    dir_nodes = []
+    dir_velocities = []
+    num_dir_nodes = int(len(env._node_boundary_info)/dim)
+    for n in range(num_dir_nodes):
+        vel = []
+        node = []
+        for i in range(dim):
+            dir_info = env._node_boundary_info[2 * n + i]
+            nd = list(dir_info[0])[i]
+            node.append(nd)
+            vd = dir_info[1]
+            vel.append(vd)
+        dir_nodes.append(node)
+        dir_velocities.append(vel)
+    info_dict = {}
+    info_dict['domain_size'] = domain_size
+    info_dict['dx'] = dx
+    info_dict['E'] = E
+    info_dict['nu'] = nu
+    info_dict['dir_nodes'] = dir_nodes
+    info_dict['dir_velocities'] = dir_velocities
+    print(info_dict)
+    return info_dict
+    
 if __name__ == '__main__':
     # Input check.
-    if len(sys.argv) != 2:
-        print_error('Usage: python run_demo.py [demo_name]')
-        sys.exit(0)
-    demo_name = sys.argv[1]
-    assert demo_name in all_demo_names
+    # if len(sys.argv) != 2:
+    #     print_error('Usage: python run_demo.py [demo_name]')
+    #     sys.exit(0)
+    demo_names = ['piecewise_linear_single', 'piecewise_linear', 'piecewise_linear_io', 'piecewise_linear_sphere']
+    for demo_name in demo_names:
+        assert demo_name in all_demo_names
 
-    # Hyperparameters which are loaded from the config file.
-    config_file_name = 'config/{}.txt'.format(demo_name)
-    config = {}
-    with open(config_file_name, 'r') as f:
-        lines = f.readlines()
-        for line in lines:
-            key, val = line.strip().split(':')
-            key = key.strip()
-            val = val.strip()
-            config[key] = val
-    seed = int(config['seed'])
-    sample_num = int(config['sample_num'])
-    solver = config['solver']
-    rel_tol = float(config['rel_tol'])
-    max_iter = int(config['max_iter'])
-    enable_grad_check = config['enable_grad_check'] == 'True'
-    spp = int(config['spp'])
-    fps = int(config['fps'])
+        # Hyperparameters which are loaded from the config file.
+        config_file_name = 'config/{}.json'.format(demo_name)
+        config = {}
+        with open(config_file_name, 'r') as f:
+            config = json.load(f)
+        assert(config is not None)
 
-    # Load class.
-    module_name, env_name = all_demo_names[demo_name]
-    Env = getattr(import_module('py_diff_stokes_flow.env.{}'.format(module_name)), env_name)
-    env = Env(seed, demo_name)
+        cell_dim = config['domain']
+        E = config['youngs_modulus']
+        pr = config['poissons_ratio']
+        vol_tol = config['volume_tolerance']
+        inlets = config['inlets']
+        inlet_velocities = config['inlet_velocities']
+        if (demo_name == 'piecewise_linear_io'):
+            outlets = config['outlets']
+        num_pieces_per_curve = config['num_pieces_per_curve']
+        bounds_for_each_piece = config['bounds_for_each_piece']
+        seed = int(config['seed'])
+        sample_num = int(config['sample_num'])
+        num_noise_samples = int(config['num_noise_samples'])
+        solver = config['solver']
+        spp = int(config['spp'])
+        fps = int(config['fps'])
 
-    # Global search: randomly sample initial guesses and pick the best.
-    samples = []
-    losses = []
-    best_sample = None
-    best_loss = np.inf
-    print_info('Randomly sampling initial guesses...')
-    
-    fs = []
-    ns = []
-    for i in tqdm(range(sample_num)):
-        x = env.sample()
-        env._interface_boundary_type = 'free-slip'
-        _, info_fs = env.solve(x, False, { 'solver': solver }) 
-        env._interface_boundary_type = 'no-slip'
-        _, info_ns = env.solve(x, False, { 'solver': solver })
-        export_data(info_fs[0]['velocity_field'], info_fs[0]['density'], info_ns[0]['velocity_field'], i, 'amplifier')
+        # Load class.
+        module_name, env_name = all_demo_names[demo_name]
+        Env = getattr(import_module('py_diff_stokes_flow.env.{}'.format(module_name)), env_name)
+        if(demo_name == 'piecewise_linear_io'):
+            env = Env(seed, demo_name, cell_dim, E, pr, vol_tol, inlets, outlets, inlet_velocities, num_pieces_per_curve, bounds_for_each_piece)
+        else:
+            env = Env(seed, demo_name, cell_dim, E, pr, vol_tol, inlets, inlet_velocities, num_pieces_per_curve, bounds_for_each_piece)
+
+        info_dict = prepare_invariant_data(env)
+        export_invariables(info_dict, demo_name)
+
+        # Global search: randomly sample initial guesses and pick the best.
+        samples = []
+        losses = []
+        best_sample = None
+        best_loss = np.inf
+        print_info('Randomly sampling initial guesses...')
         
-        fs.append(info_fs[0])
-        ns.append(info_ns[0])
+        fs = []
+        ns = []
+        for i in tqdm(range(sample_num)):
+            x = env.sample()
+            for j in range(num_noise_samples + 1):
+                env._interface_boundary_type = 'free-slip'
+                info_fs = env.solve(x, False, False, { 'solver': solver }, add_noise = False if j == 0 else True) 
+                # env._interface_boundary_type = 'no-slip'
+                # info_ns = env.solve(x, False, False, { 'solver': solver }, add_noise = True)
+                export_data(info_fs[0]['velocity_field'], info_fs[0]['density'], None, (num_noise_samples + 1) * i + j, demo_name)
+            
+                fs.append(info_fs[0])
+                # ns.append(info_ns[0])
+        
+        env._render_vel_2d(fs, 'viz_fs')
+        # env._render_vel_2d(ns, 'viz_ns')
     
-    env._render_vel_2d(fs, 'viz_fs')
-    env._render_vel_2d(ns, 'viz_ns')
+    
 
     

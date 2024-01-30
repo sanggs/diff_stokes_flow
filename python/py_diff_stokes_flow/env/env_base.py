@@ -147,6 +147,9 @@ class EnvBase:
 
     def upper_bound(self):
         raise NotImplementedError
+    
+    def number_of_controls(self):
+        raise NotImplementedError
 
     ###########################################################################
     # Other base-class functions.
@@ -167,12 +170,12 @@ class EnvBase:
     # - require_grad: whether to compute gradients or not.
     # - options:
     #   - 'solver': 'eigen' or 'pardiso'.
-    def solve(self, x, require_grad, options):
+    def solve(self, x, require_loss, require_grad, options, add_noise = False, move_cp = False, info_dict = None):
         # Initialize shapes.
         assert self._parametric_shape_info
-        x = ndarray(x).copy().ravel()
+        x = ndarray(x).copy()
         # Determine the mode number.
-        param_and_J = self._variables_to_shape_params(x)
+        param_and_J = self._variables_to_shape_params(x, add_noise, move_cp, info_dict)
         if len(param_and_J) == 2 and isinstance(param_and_J[0], np.ndarray):
             param_and_J = [param_and_J,]
         mode_num = len(param_and_J)
@@ -234,10 +237,13 @@ class EnvBase:
             forward_result_single = scene.Forward(solver)
             u_single = ndarray(scene.GetVelocityFieldFromForward(forward_result_single))
             density = ndarray(scene.GetCellDensities())
-            info_single = { 'scene': scene, 'velocity_field': self.reshape_velocity_field(u_single), 'density': density }
+            info_single = { 'scene': scene, 'velocity_field': self.reshape_velocity_field(u_single), 'density': density, 'forward_result_single': forward_result_single }
             info.append(info_single)
             u.append(u_single)
             forward_result.append(forward_result_single)
+
+        if (not require_loss):
+            return info
 
         # Compute the loss.
         loss_and_grad = self._loss_and_grad_on_velocity_field(u[0] if mode_num == 1 else u)
@@ -390,9 +396,9 @@ class EnvBase:
             face_color = ndarray([247 / 255, 247 / 255, 247 / 255])
             plt.rcParams['figure.facecolor'] = face_color
             plt.rcParams['axes.facecolor'] = face_color
-            fig = plt.figure(figsize=(12, 10))
+            fig = plt.figure(figsize=(8, 12))
             ax = fig.add_subplot(111)
-            padding = 5
+            padding = 1
             ax.set_title('Frame: {}'.format(m))
             ax.set_xticks([])
             ax.set_yticks([])

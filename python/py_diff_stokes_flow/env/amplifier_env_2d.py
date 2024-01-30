@@ -7,7 +7,7 @@ class AmplifierEnv2d(EnvBase):
     def __init__(self, seed, folder):
         np.random.seed(seed)
 
-        cell_nums = (64, 48)
+        cell_nums = (32, 32)
         E = 100
         nu = 0.499
         vol_tol = 1e-3
@@ -33,10 +33,15 @@ class AmplifierEnv2d(EnvBase):
         self._outlet_velocity = 3 * inlet_velocity
         self._inlet_range = inlet_range
 
-    def _variables_to_shape_params(self, x):
+    def _variables_to_shape_params(self, x, add_noise = False, move_cp = False, info_dict = None):
         x = ndarray(x).copy().ravel()
         assert x.size == 5
 
+        if (move_cp):
+            scale = info_dict["scale"]
+            noise = info_dict["noise"]
+            x = x + noise * scale
+        
         cx, cy = self._cell_nums
         # Convert x to the shape parameters.
         lower = ndarray([
